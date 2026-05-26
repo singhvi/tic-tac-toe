@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tic-Tac-Toe</title>
+  <style>
+    /* === RESET & VARIABLES === */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #07071a;
+      --surface:   #11112b;
+      --surface2:  #1a1a3a;
+      --surface3:  #242450;
+      --accent:    #7c3aed;
+      --accent2:   #4f46e5;
+      --x-color:   #f43f5e;
+      --x-glow:    rgba(244,63,94,.45);
+      --o-color:   #22d3ee;
+      --o-glow:    rgba(34,211,238,.45);
+      --win:       #f59e0b;
+      --win-glow:  rgba(245,158,11,.55);
+      --text:      #f1f5f9;
+      --muted:     #94a3b8;
+      --border:    rgba(255,255,255,.07);
+      --radius:    20px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 60% 50% at 15% 15%, rgba(124,58,237,.18) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 85% 85%, rgba(34,211,238,.12) 0%, transparent 70%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    /* ========== OVERLAYS ========== */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 1rem;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid rgba(124,58,237,.25);
+      border-radius: var(--radius);
+      padding: 2.5rem 2.25rem;
+      max-width: 460px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 30px 70px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.04);
+      animation: modalIn .35s cubic-bezier(.34,1.56,.64,1);
+    }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(.84) translateY(20px); }
+      to   { opacity: 1; transform: scale(1)  translateY(0); }
+    }
+
+    .modal-title {
+      font-size: 2.1rem;
+      font-weight: 900;
+      letter-spacing: -.5px;
+      background: linear-gradient(135deg, #a78bfa, #22d3ee);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: .35rem;
+    }
+
+    .modal-sub {
+      color: var(--muted);
+      font-size: .93rem;
+      margin-bottom: 2rem;
+    }
+
+    /* ---- Mode cards ---- */
+    .mode-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .mode-card {
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 1.6rem 1rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .65rem;
+      transition: all .2s;
+      font-family: inherit;
+      color: inherit;
+    }
+
+    .mode-card:hover, .mode-card:focus-visible {
+      border-color: var(--accent);
+      background: var(--surface3);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 28px rgba(124,58,237,.35);
+      outline: none;
+    }
+
+    .mode-icon  { font-size: 2.4rem; }
+    .mode-label { font-size: 1rem; font-weight: 800; }
+    .mode-desc  { font-size: .78rem; color: var(--muted); }
+
+    /* ---- Setup steps ---- */
+    .step { display: none; }
+    .step.active {
+      display: block;
+      animation: fadeUp .25s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .form-group { margin-bottom: 1.25rem; text-align: left; }
+
+    .form-label {
+      display: block;
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      margin-bottom: .5rem;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: .75rem 1rem;
+      color: var(--text);
+      font-size: 1rem;
+      font-family: inherit;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .form-input::placeholder { color: rgba(148,163,184,.5); }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,58,237,.25);
+    }
+
+    /* ---- Symbol picker ---- */
+    .sym-pick { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+
+    .sym-opt { position: relative; }
+    .sym-opt input { position: absolute; opacity: 0; pointer-events: none; }
+
+    .sym-opt label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .4rem;
+      padding: 1.2rem;
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .sym-opt label:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+    .sym-opt input:checked + label {
+      border-color: var(--accent);
+      background: var(--surface3);
+      box-shadow: 0 0 0 3px rgba(124,58,237,.25);
+    }
+
+    .sym-big  { font-size: 2.1rem; font-weight: 900; line-height: 1; }
+    .sym-tiny { font-size: .72rem; font-weight: 600; color: var(--muted); }
+
+    .sym-x { color: var(--x-color); }
+    .sym-o { color: var(--o-color); }
+
+    .auto-sym-box {
+      padding: 1rem;
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .auto-sym-box .sym-big { display: block; margin-bottom: .3rem; }
+    .auto-sym-box .sym-tiny { font-size: .78rem; }
+
+    /* ---- Buttons ---- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .45rem;
+      padding: .78rem 1.4rem;
+      border-radius: 10px;
+      border: none;
+      font-size: .93rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .btn:focus-visible {
+      outline: 3px solid rgba(124,58,237,.65);
+      outline-offset: 2px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      width: 100%;
+      margin-top: .5rem;
+      padding: .88rem;
+      box-shadow: 0 4px 18px rgba(124,58,237,.45);
+    }
+
+    .btn-primary:hover  { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(124,58,237,.55); }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover { background: var(--surface3); color: var(--text); }
+
+    .btn-danger {
+      background: rgba(244,63,94,.13);
+      color: var(--x-color);
+      border: 1px solid rgba(244,63,94,.28);
+    }
+
+    .btn-danger:hover { background: rgba(244,63,94,.24); }
+
+    /* ========== GAME SCREEN ========== */
+    #game-screen { width: 100%; max-width: 920px; }
+
+    .game-header { text-align: center; margin-bottom: 1.5rem; }
+
+    .game-title {
+      font-size: 1.8rem;
+      font-weight: 900;
+      letter-spacing: -.5px;
+      background: linear-gradient(135deg, #a78bfa, #22d3ee);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .game-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    @media (max-width: 680px) {
+      .game-layout { grid-template-columns: 1fr; }
+    }
+
+    /* ========== BOARD ========== */
+    .board-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      box-shadow: 0 12px 45px rgba(0,0,0,.45);
+    }
+
+    /* Board uses the section background as "lines" via gap */
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .cell {
+      aspect-ratio: 1;
+      min-height: 82px;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .15s, border-color .15s, transform .12s, box-shadow .2s;
+      position: relative;
+    }
+
+    .cell:hover:not(.taken):not(.disabled) {
+      background: var(--surface3);
+      border-color: rgba(124,58,237,.5);
+      transform: scale(1.035);
+    }
+
+    .cell:focus-visible {
+      outline: 3px solid rgba(124,58,237,.65);
+      outline-offset: 2px;
+    }
+
+    .cell.taken   { cursor: default; }
+    .cell.disabled{ cursor: not-allowed; }
+
+    .cell-sym {
+      font-size: clamp(2rem, 7vw, 3.6rem);
+      font-weight: 900;
+      line-height: 1;
+      user-select: none;
+      animation: symPop .38s cubic-bezier(.34,1.56,.64,1);
+    }
+
+    @keyframes symPop {
+      from { opacity: 0; transform: scale(0) rotate(-12deg); }
+      to   { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+
+    .cell-sym.x { color: var(--x-color); text-shadow: 0 0 22px var(--x-glow); }
+    .cell-sym.o { color: var(--o-color); text-shadow: 0 0 22px var(--o-glow); }
+
+    .cell.win-cell {
+      background: rgba(245,158,11,.14) !important;
+      border-color: var(--win) !important;
+      animation: winPulse 1.1s ease-in-out infinite alternate;
+    }
+
+    @keyframes winPulse {
+      from { box-shadow: 0 0  8px rgba(245,158,11,.3); }
+      to   { box-shadow: 0 0 28px rgba(245,158,11,.75), inset 0 0 16px rgba(245,158,11,.08); }
+    }
+
+    /* ========== SCOREBOARD ========== */
+    .score-section {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .score-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.4rem;
+      box-shadow: 0 6px 24px rgba(0,0,0,.35);
+    }
+
+    .players-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: .6rem;
+      align-items: center;
+      margin-bottom: .75rem;
+    }
+
+    .player-tile {
+      text-align: center;
+      padding: 1rem .6rem;
+      border-radius: 14px;
+      background: var(--surface2);
+      border: 2px solid transparent;
+      transition: border-color .3s, box-shadow .3s;
+    }
+
+    .player-tile.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 22px rgba(124,58,237,.32);
+    }
+
+    .tile-sym {
+      font-size: 2.3rem;
+      font-weight: 900;
+      line-height: 1;
+      margin-bottom: .2rem;
+    }
+
+    .tile-sym.x { color: var(--x-color); text-shadow: 0 0 14px var(--x-glow); }
+    .tile-sym.o { color: var(--o-color); text-shadow: 0 0 14px var(--o-glow); }
+
+    .tile-name {
+      font-size: .8rem;
+      font-weight: 700;
+      margin-bottom: .5rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tile-wins { font-size: 2rem; font-weight: 900; color: var(--win); }
+    .tile-wins-lbl { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+    .vs-chip {
+      font-size: .8rem;
+      font-weight: 900;
+      color: var(--muted);
+      background: var(--surface3);
+      border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .65rem 0 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .stat-lbl { font-size: .84rem; color: var(--muted); }
+    .stat-val { font-size: .93rem; font-weight: 700; }
+
+    /* Status card */
+    .status-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.15rem 1.4rem;
+      text-align: center;
+      box-shadow: 0 4px 18px rgba(0,0,0,.3);
+    }
+
+    .turn-lbl {
+      font-size: .74rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      margin-bottom: .35rem;
+    }
+
+    .turn-name {
+      font-size: 1.25rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #a78bfa, #22d3ee);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      min-height: 1.6rem;
+    }
+
+    .action-btns { display: flex; flex-direction: column; gap: .6rem; }
+
+    /* ========== RESULT POPUP ========== */
+    .result-modal {
+      background: var(--surface);
+      border: 1px solid rgba(124,58,237,.3);
+      border-radius: var(--radius);
+      padding: 2.5rem 2.25rem;
+      max-width: 380px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 35px 90px rgba(0,0,0,.75);
+      animation: modalIn .42s cubic-bezier(.34,1.56,.64,1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .confetti-wrap {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      width: 7px;
+      height: 7px;
+      border-radius: 2px;
+      animation: confettiFall linear forwards;
+    }
+
+    @keyframes confettiFall {
+      from { opacity: 1; transform: translateY(-10px) rotate(0deg); }
+      to   { opacity: 0; transform: translateY(330px) rotate(560deg); }
+    }
+
+    .res-emoji {
+      font-size: 3.8rem;
+      line-height: 1;
+      display: block;
+      margin-bottom: .75rem;
+      animation: bounceIn .55s cubic-bezier(.34,1.56,.64,1) .1s both;
+    }
+
+    @keyframes bounceIn {
+      from { opacity: 0; transform: scale(0) translateY(-24px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .res-title {
+      font-size: 1.85rem;
+      font-weight: 900;
+      margin-bottom: .4rem;
+      letter-spacing: -.3px;
+    }
+
+    .res-title.win  { background: linear-gradient(135deg, var(--win), #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .res-title.draw { background: linear-gradient(135deg, var(--muted), var(--text)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+    .res-sub  { color: var(--muted); font-size: .93rem; margin-bottom: 1.85rem; }
+
+    .res-btns { display: flex; gap: .75rem; }
+    .res-btns .btn { flex: 1; }
+
+    /* ========== UTILITY ========== */
+    .hidden { display: none !important; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================
+     SETUP OVERLAY
+     ============================================================ -->
+<div id="setup-overlay" class="overlay">
+  <div class="modal">
+
+    <!-- Step 1: Mode -->
+    <div id="step-mode" class="step active">
+      <div class="modal-title">Tic-Tac-Toe</div>
+      <div class="modal-sub">Choose a game mode to get started</div>
+      <div class="mode-cards">
+        <button class="mode-card" id="btn-single" aria-label="Single Player – play against computer">
+          <span class="mode-icon">🤖</span>
+          <span class="mode-label">Single Player</span>
+          <span class="mode-desc">vs Computer</span>
+        </button>
+        <button class="mode-card" id="btn-two" aria-label="Two Player – play with a friend">
+          <span class="mode-icon">👥</span>
+          <span class="mode-label">Two Players</span>
+          <span class="mode-desc">vs a Friend</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: Player 1 (also single-player setup) -->
+    <div id="step-p1" class="step">
+      <div class="modal-title" id="p1-title">Player Setup</div>
+      <div class="modal-sub"  id="p1-sub">Tell us about Player 1</div>
+
+      <div class="form-group">
+        <label class="form-label" for="inp-p1-name">Your Name</label>
+        <input type="text" id="inp-p1-name" class="form-input" placeholder="Player #1" maxlength="18" autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Choose Your Symbol</label>
+        <div class="sym-pick">
+          <div class="sym-opt">
+            <input type="radio" name="p1sym" id="p1-x" value="X" checked>
+            <label for="p1-x">
+              <span class="sym-big sym-x">✕</span>
+              <span class="sym-tiny">Play as X</span>
+            </label>
+          </div>
+          <div class="sym-opt">
+            <input type="radio" name="p1sym" id="p1-o" value="O">
+            <label for="p1-o">
+              <span class="sym-big sym-o">○</span>
+              <span class="sym-tiny">Play as O</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-p1-next">Continue →</button>
+    </div>
+
+    <!-- Step 3: Player 2 (two-player only) -->
+    <div id="step-p2" class="step">
+      <div class="modal-title">Player 2 Setup</div>
+      <div class="modal-sub">Tell us about Player 2</div>
+
+      <div class="form-group">
+        <label class="form-label" for="inp-p2-name">Player 2 Name</label>
+        <input type="text" id="inp-p2-name" class="form-input" placeholder="Player #2" maxlength="18" autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Player 2 Symbol</label>
+        <div class="auto-sym-box">
+          <span class="sym-big" id="p2-auto-sym">○</span>
+          <span class="sym-tiny">Auto-assigned (opposite of Player 1)</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-p2-next">Start Game →</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================
+     MAIN GAME SCREEN
+     ============================================================ -->
+<div id="game-screen" class="hidden">
+
+  <div class="game-header">
+    <div class="game-title">Tic-Tac-Toe</div>
+  </div>
+
+  <div class="game-layout">
+
+    <!-- LEFT: Board -->
+    <div class="board-section">
+      <div class="board" id="board" role="grid" aria-label="Tic-tac-toe board"></div>
+    </div>
+
+    <!-- RIGHT: Scoreboard + Controls -->
+    <div class="score-section">
+
+      <!-- Player scores -->
+      <div class="score-card">
+        <div class="players-row">
+          <div class="player-tile" id="tile-p1">
+            <div class="tile-sym x" id="tile-p1-sym">✕</div>
+            <div class="tile-name"  id="tile-p1-name">Player 1</div>
+            <div class="tile-wins"  id="p1-wins">0</div>
+            <div class="tile-wins-lbl">Wins</div>
+          </div>
+          <div class="vs-chip">VS</div>
+          <div class="player-tile" id="tile-p2">
+            <div class="tile-sym o" id="tile-p2-sym">○</div>
+            <div class="tile-name"  id="tile-p2-name">Player 2</div>
+            <div class="tile-wins"  id="p2-wins">0</div>
+            <div class="tile-wins-lbl">Wins</div>
+          </div>
+        </div>
+        <div class="stat-row">
+          <span class="stat-lbl">Games Played</span>
+          <span class="stat-val" id="games-played">0</span>
+        </div>
+      </div>
+
+      <!-- Current turn -->
+      <div class="status-card">
+        <div class="turn-lbl">Current Turn</div>
+        <div class="turn-name" id="turn-name">—</div>
+      </div>
+
+      <!-- Actions -->
+      <div class="action-btns">
+        <button class="btn btn-secondary" id="btn-reset">↺ Reset Scores</button>
+        <button class="btn btn-danger"    id="btn-new-setup">⊕ New Game Setup</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     RESULT POPUP
+     ============================================================ -->
+<div id="result-overlay" class="overlay hidden">
+  <div class="result-modal">
+    <div class="confetti-wrap" id="confetti-wrap"></div>
+    <span class="res-emoji" id="res-emoji">🎉</span>
+    <div class="res-title"   id="res-title">Title</div>
+    <div class="res-sub"     id="res-sub">Subtitle</div>
+    <div class="res-btns">
+      <button class="btn btn-primary"   id="btn-again">Play Again</button>
+      <button class="btn btn-secondary" id="btn-quit">Quit</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const WIN_COMBOS = [
+  [0,1,2],[3,4,5],[6,7,8],  // rows
+  [0,3,6],[1,4,7],[2,5,8],  // cols
+  [0,4,8],[2,4,6]           // diagonals
+];
+
+const CONFETTI_COLORS = ['#f59e0b','#7c3aed','#22d3ee','#f43f5e','#10b981','#f97316','#a78bfa'];
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  mode:                null,   // 'single' | 'two'
+  players: [
+    { name: 'Player #1', symbol: 'X' },
+    { name: 'Player #2', symbol: 'O' }
+  ],
+  board:               Array(9).fill(null),
+  currentPlayerIndex:  0,
+  wins:                [0, 0],
+  gamesPlayed:         0,
+  gameOver:            false,
+  startingPlayerIndex: 0,
+  winCells:            [],
+  aiThinking:          false
+};
+
+// ============================================================
+// DOM
+// ============================================================
+const $ = id => document.getElementById(id);
+
+const setupOverlay  = $('setup-overlay');
+const gameScreen    = $('game-screen');
+const resultOverlay = $('result-overlay');
+
+const stepMode = $('step-mode');
+const stepP1   = $('step-p1');
+const stepP2   = $('step-p2');
+
+const boardEl       = $('board');
+const turnNameEl    = $('turn-name');
+const tileP1        = $('tile-p1');
+const tileP2        = $('tile-p2');
+const tileP1Sym     = $('tile-p1-sym');
+const tileP2Sym     = $('tile-p2-sym');
+const tileP1Name    = $('tile-p1-name');
+const tileP2Name    = $('tile-p2-name');
+const p1WinsEl      = $('p1-wins');
+const p2WinsEl      = $('p2-wins');
+const gamesPlayedEl = $('games-played');
+const confettiWrap  = $('confetti-wrap');
+
+// ============================================================
+// SETUP FLOW
+// ============================================================
+function showStep(el) {
+  [stepMode, stepP1, stepP2].forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+}
+
+$('btn-single').addEventListener('click', () => {
+  state.mode = 'single';
+  $('p1-title').textContent = 'Your Setup';
+  $('p1-sub').textContent   = 'Set up your profile';
+  showStep(stepP1);
+  $('inp-p1-name').focus();
+});
+
+$('btn-two').addEventListener('click', () => {
+  state.mode = 'two';
+  $('p1-title').textContent = 'Player 1 Setup';
+  $('p1-sub').textContent   = 'Tell us about Player 1';
+  showStep(stepP1);
+  $('inp-p1-name').focus();
+});
+
+$('btn-p1-next').addEventListener('click', advanceFromP1);
+$('inp-p1-name').addEventListener('keypress', e => { if (e.key === 'Enter') advanceFromP1(); });
+
+function advanceFromP1() {
+  const name   = $('inp-p1-name').value.trim() || 'Player #1';
+  const symbol = document.querySelector('input[name="p1sym"]:checked').value;
+  state.players[0] = { name, symbol };
+
+  if (state.mode === 'single') {
+    state.players[1] = { name: 'Computer', symbol: symbol === 'X' ? 'O' : 'X' };
+    startGame();
+  } else {
+    const p2sym = symbol === 'X' ? 'O' : 'X';
+    state.players[1].symbol = p2sym;
+    const autoEl = $('p2-auto-sym');
+    autoEl.textContent = p2sym === 'X' ? '✕' : '○';
+    autoEl.className   = `sym-big sym-${p2sym.toLowerCase()}`;
+    showStep(stepP2);
+    $('inp-p2-name').focus();
+  }
+}
+
+$('btn-p2-next').addEventListener('click', advanceFromP2);
+$('inp-p2-name').addEventListener('keypress', e => { if (e.key === 'Enter') advanceFromP2(); });
+
+function advanceFromP2() {
+  const name = $('inp-p2-name').value.trim() || 'Player #2';
+  state.players[1].name = name;
+  startGame();
+}
+
+// ============================================================
+// GAME START
+// ============================================================
+function startGame() {
+  setupOverlay.classList.add('hidden');
+  gameScreen.classList.remove('hidden');
+  syncScoreboardLabels();
+  updateScoreboard();
+  initRound();
+}
+
+function initRound() {
+  state.board              = Array(9).fill(null);
+  state.currentPlayerIndex = state.startingPlayerIndex;
+  state.gameOver           = false;
+  state.winCells           = [];
+  state.aiThinking         = false;
+
+  renderBoard();
+  updateTurnDisplay();
+
+  if (state.mode === 'single' && state.currentPlayerIndex === 1) {
+    scheduleAI();
+  }
+}
+
+// ============================================================
+// BOARD RENDERING
+// ============================================================
+function renderBoard() {
+  boardEl.innerHTML = '';
+
+  state.board.forEach((val, i) => {
+    const cell = document.createElement('button');
+    const isWin = state.winCells.includes(i);
+
+    cell.className = 'cell'
+      + (val               ? ' taken'    : '')
+      + (state.gameOver && !isWin ? ' disabled' : '')
+      + (isWin             ? ' win-cell' : '');
+
+    cell.setAttribute('role', 'gridcell');
+    cell.setAttribute('aria-label',
+      `Square ${i + 1}${val ? `, occupied by ${val}` : ', empty'}`);
+    cell.setAttribute('tabindex', (!val && !state.gameOver) ? '0' : '-1');
+
+    if (val) {
+      const sym = document.createElement('span');
+      sym.className    = `cell-sym ${val.toLowerCase()}`;
+      sym.textContent  = val === 'X' ? '✕' : '○';
+      sym.setAttribute('aria-hidden', 'true');
+      cell.appendChild(sym);
+    }
+
+    cell.addEventListener('click',    () => handleClick(i));
+    cell.addEventListener('keypress', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(i); }
+    });
+
+    boardEl.appendChild(cell);
+  });
+}
+
+// ============================================================
+// GAMEPLAY
+// ============================================================
+function handleClick(idx) {
+  if (state.gameOver || state.board[idx] || state.aiThinking) return;
+  if (state.mode === 'single' && state.currentPlayerIndex === 1) return;
+  placeMove(idx, state.currentPlayerIndex);
+}
+
+function placeMove(idx, playerIdx) {
+  state.board[idx] = state.players[playerIdx].symbol;
+  renderBoard();
+
+  const win = findWinner();
+  if (win) {
+    endGame('win', playerIdx, win);
+  } else if (state.board.every(Boolean)) {
+    endGame('draw', -1, []);
+  } else {
+    state.currentPlayerIndex = 1 - state.currentPlayerIndex;
+
+    if (state.mode === 'single' && state.currentPlayerIndex === 1) {
+      state.aiThinking = true;
+      updateTurnDisplay();
+      scheduleAI();
+    } else {
+      updateTurnDisplay();
+    }
+  }
+}
+
+function endGame(type, playerIdx, winCombo) {
+  state.gameOver = true;
+  state.winCells = winCombo;
+
+  if (type === 'win') {
+    state.wins[playerIdx]++;
+  }
+  state.gamesPlayed++;
+
+  renderBoard();
+  updateScoreboard();
+  updateTurnDisplay();
+
+  setTimeout(() => showResult(type, playerIdx), type === 'win' ? 700 : 500);
+}
+
+// ============================================================
+// WIN DETECTION
+// ============================================================
+function findWinner() {
+  for (const [a, b, c] of WIN_COMBOS) {
+    if (state.board[a] && state.board[a] === state.board[b] && state.board[a] === state.board[c]) {
+      return [a, b, c];
+    }
+  }
+  return null;
+}
+
+// ============================================================
+// AI
+// ============================================================
+function scheduleAI() {
+  setTimeout(doAIMove, 650);
+}
+
+function doAIMove() {
+  state.aiThinking = false;
+  placeMove(bestMove(), 1);
+}
+
+function bestMove() {
+  const compSym  = state.players[1].symbol;
+  const humanSym = state.players[0].symbol;
+
+  const win = winningSquare(compSym);
+  if (win !== -1) return win;
+
+  const block = winningSquare(humanSym);
+  if (block !== -1) return block;
+
+  if (!state.board[4]) return 4;
+
+  const corners = [0, 2, 6, 8].filter(i => !state.board[i]);
+  if (corners.length) return corners[Math.floor(Math.random() * corners.length)];
+
+  const free = state.board.map((v, i) => v ? -1 : i).filter(i => i !== -1);
+  return free[Math.floor(Math.random() * free.length)];
+}
+
+function winningSquare(sym) {
+  for (const [a, b, c] of WIN_COMBOS) {
+    const row   = [state.board[a], state.board[b], state.board[c]];
+    const idxs  = [a, b, c];
+    if (row.filter(v => v === sym).length === 2 && row.includes(null)) {
+      return idxs[row.indexOf(null)];
+    }
+  }
+  return -1;
+}
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+function syncScoreboardLabels() {
+  tileP1Name.textContent = state.players[0].name;
+  tileP2Name.textContent = state.players[1].name;
+
+  const s0 = state.players[0].symbol;
+  const s1 = state.players[1].symbol;
+
+  tileP1Sym.textContent = s0 === 'X' ? '✕' : '○';
+  tileP1Sym.className   = `tile-sym ${s0.toLowerCase()}`;
+
+  tileP2Sym.textContent = s1 === 'X' ? '✕' : '○';
+  tileP2Sym.className   = `tile-sym ${s1.toLowerCase()}`;
+}
+
+function updateScoreboard() {
+  p1WinsEl.textContent      = state.wins[0];
+  p2WinsEl.textContent      = state.wins[1];
+  gamesPlayedEl.textContent = state.gamesPlayed;
+}
+
+function updateTurnDisplay() {
+  if (state.gameOver) {
+    turnNameEl.textContent = '—';
+    tileP1.classList.remove('active');
+    tileP2.classList.remove('active');
+    return;
+  }
+
+  if (state.aiThinking) {
+    turnNameEl.textContent = 'Computer is thinking…';
+    tileP1.classList.remove('active');
+    tileP2.classList.add('active');
+    return;
+  }
+
+  const cp = state.currentPlayerIndex;
+  turnNameEl.textContent = `${state.players[cp].name}'s Turn`;
+  tileP1.classList.toggle('active', cp === 0);
+  tileP2.classList.toggle('active', cp === 1);
+}
+
+// ============================================================
+// RESULT POPUP
+// ============================================================
+function showResult(type, playerIdx) {
+  confettiWrap.innerHTML = '';
+
+  const emojiEl = $('res-emoji');
+  const titleEl = $('res-title');
+  const subEl   = $('res-sub');
+
+  if (type === 'win') {
+    emojiEl.textContent   = '🏆';
+    titleEl.textContent   = `${state.players[playerIdx].name} Wins!`;
+    titleEl.className     = 'res-title win';
+    subEl.textContent     = 'Congratulations — what a game!';
+    spawnConfetti();
+  } else {
+    emojiEl.textContent   = '🤝';
+    titleEl.textContent   = "It's a Draw!";
+    titleEl.className     = 'res-title draw';
+    subEl.textContent     = 'Great effort from both players!';
+  }
+
+  resultOverlay.classList.remove('hidden');
+  $('btn-again').focus();
+}
+
+function spawnConfetti() {
+  for (let i = 0; i < 32; i++) {
+    const piece = document.createElement('div');
+    piece.className  = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.top  = '-12px';
+    piece.style.background    = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+    piece.style.animationDuration = (.7 + Math.random() * 1.3) + 's';
+    piece.style.animationDelay   = (Math.random() * .55) + 's';
+    piece.style.borderRadius = Math.random() > .5 ? '50%' : '2px';
+    piece.style.width  = (6 + Math.random() * 6) + 'px';
+    piece.style.height = (6 + Math.random() * 6) + 'px';
+    confettiWrap.appendChild(piece);
+  }
+}
+
+$('btn-again').addEventListener('click', () => {
+  resultOverlay.classList.add('hidden');
+  state.startingPlayerIndex = 1 - state.startingPlayerIndex;
+  initRound();
+});
+
+$('btn-quit').addEventListener('click', () => {
+  resultOverlay.classList.add('hidden');
+  goToSetup();
+});
+
+// ============================================================
+// CONTROL BUTTONS
+// ============================================================
+$('btn-reset').addEventListener('click', () => {
+  state.wins        = [0, 0];
+  state.gamesPlayed = 0;
+  updateScoreboard();
+});
+
+$('btn-new-setup').addEventListener('click', goToSetup);
+
+function goToSetup() {
+  gameScreen.classList.add('hidden');
+  resultOverlay.classList.add('hidden');
+
+  // Clear forms
+  $('inp-p1-name').value = '';
+  $('inp-p2-name').value = '';
+  document.querySelector('input[name="p1sym"][value="X"]').checked = true;
+
+  // Reset tracked state
+  state.mode                = null;
+  state.wins                = [0, 0];
+  state.gamesPlayed         = 0;
+  state.startingPlayerIndex = 0;
+
+  setupOverlay.classList.remove('hidden');
+  showStep(stepMode);
+  $('btn-single').focus();
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+$('btn-single').focus();
+</script>
+</body>
+</html>
